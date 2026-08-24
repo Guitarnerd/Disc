@@ -362,7 +362,17 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
-    mainWindow.webContents.openDevTools({ mode: "detach" });
+    // Auto-opening DevTools on every dev-mode launch was fine for active
+    // development, but `npm run dev` is also how end users (not just
+    // developers) run this app day-to-day — via the Desktop shortcut,
+    // for instance — and a DevTools window popping up unprompted just
+    // reads as something broken to someone who isn't expecting it. Gated
+    // behind an explicit opt-in env var instead; still reachable manually
+    // any time via Ctrl+Shift+I (Cmd+Option+I on macOS), same as any
+    // Chromium app.
+    if (process.env.OPEN_DEVTOOLS === "true") {
+      mainWindow.webContents.openDevTools({ mode: "detach" });
+    }
   } else {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }

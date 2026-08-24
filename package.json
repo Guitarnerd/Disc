@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "concurrently --kill-others-on-fail -n VITE,ELECTRON -c blue,green \"vite\" \"npm:dev:electron\"",
     "dev:electron": "wait-on tcp:5173 && cross-env NODE_ENV=development electron .",
+    "dev:debug": "concurrently --kill-others-on-fail -n VITE,ELECTRON -c blue,green \"vite\" \"npm:dev:electron:debug\"",
+    "dev:electron:debug": "wait-on tcp:5173 && cross-env NODE_ENV=development OPEN_DEVTOOLS=true electron .",
     "build": "vite build",
     "preview": "vite preview",
     "dist": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder"
