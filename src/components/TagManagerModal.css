@@ -1,0 +1,286 @@
+.tag-manager__backdrop {
+  animation: disc-backdrop-fade-in 0.15s ease;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+.tag-manager {
+  animation: disc-modal-scale-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  width: 560px;
+  max-width: calc(100vw - 48px);
+  max-height: min(640px, calc(100vh - 64px));
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.tag-manager__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tag-manager__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tag-manager__subtitle {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 4px 0 0 0;
+}
+
+.tag-manager__close-x {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+}
+
+.tag-manager__close-x:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.tag-manager__search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin: var(--space-4) 0 var(--space-3);
+  flex-shrink: 0;
+}
+
+.tag-manager__search-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.tag-manager__search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.tag-manager__search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.tag-manager__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-y: auto;
+  min-height: 60px;
+}
+
+.tag-manager__empty {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+.tag-manager__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+}
+
+.tag-manager__checkbox {
+  flex-shrink: 0;
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.tag-manager__dot {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: none;
+  background: currentColor;
+  box-shadow: var(--spill-dot-shadow, none);
+  cursor: pointer;
+}
+
+.tag-manager__name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tag-manager__name:hover {
+  background: var(--bg-hover);
+}
+
+.tag-manager__name-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 3px 6px;
+  outline: none;
+}
+
+.tag-manager__dupe-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.tag-manager__count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-width: 62px;
+  text-align: right;
+}
+
+.tag-manager__delete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tag-manager__delete:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+}
+
+.tag-manager__delete--armed {
+  color: var(--danger);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.tag-manager__delete--armed:hover {
+  color: white;
+}
+
+.tag-manager__merge-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-panel-alt));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border-color));
+  border-radius: var(--radius-md);
+}
+
+.tag-manager__merge-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.tag-manager__merge-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tag-manager__merge-bar .dropdown {
+  flex: 1;
+  min-width: 0;
+}
+
+.tag-manager__merge-clear {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tag-manager__merge-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.tag-manager__merge-button {
+  flex-shrink: 0;
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tag-manager__merge-button:hover {
+  background: var(--accent-hover);
+}
+
+.tag-manager__merge-button--armed {
+  background: var(--danger);
+  color: white;
+}

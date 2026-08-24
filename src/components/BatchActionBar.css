@@ -134,6 +134,11 @@
   border-color: var(--accent);
 }
 
+.batch-bar__tag-search {
+  flex-shrink: 0;
+  margin-bottom: var(--space-1);
+}
+
 .batch-bar__clear {
   margin-left: auto;
   background: transparent;

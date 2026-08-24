@@ -342,6 +342,12 @@ const ICONS = {
       <circle cx="15" cy="18" r="1.6" />
     </g>
   ),
+  tag: (
+    <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.5 13.5 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3.5h9.5l8 8a2 2 0 0 1 0 2z" />
+      <circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none" />
+    </g>
+  ),
   info: (
     <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="8.5" />

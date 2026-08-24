@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDisc } from "../context/DiscContext.jsx";
 import TagCreateMenu from "./TagCreateMenu.jsx";
 import Icon from "./Icon.jsx";
@@ -19,6 +19,7 @@ export default function BatchActionBar({ selectedIds, onClear }) {
   } = useDisc();
 
   const [tagListOpen, setTagListOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
   const [tagCreateOpen, setTagCreateOpen] = useState(false);
   const [moveMenuOpen, setMoveMenuOpen] = useState(false);
   const [collectionListOpen, setCollectionListOpen] = useState(false);
@@ -38,6 +39,14 @@ export default function BatchActionBar({ selectedIds, onClear }) {
   useEffect(() => {
     setDeleteArmed(false);
   }, [selectedIds]);
+
+  // A plain scroll through the full tag list gets unwieldy once the
+  // vocabulary grows past a couple dozen entries — this filters it live,
+  // same search-as-you-type pattern used in the Folders panel.
+  const filteredTags = useMemo(() => {
+    const q = tagSearch.trim().toLowerCase();
+    return q ? tags.filter((t) => t.name.toLowerCase().includes(q)) : tags;
+  }, [tags, tagSearch]);
 
   const moveTargets = customFolders
     .filter((f) => f.folderPath)
@@ -80,22 +89,43 @@ export default function BatchActionBar({ selectedIds, onClear }) {
       <div className="batch-bar__wrap">
         <button
           className="batch-bar__button"
-          onClick={() => setTagListOpen((v) => !v)}
+          onClick={() => {
+            setTagListOpen((v) => !v);
+            setTagSearch("");
+          }}
         >
           + Tag
         </button>
         {tagListOpen && (
           <div className="batch-bar__tag-menu">
+            {tags.length > 0 && (
+              <input
+                autoFocus
+                className="batch-bar__create-input batch-bar__tag-search"
+                value={tagSearch}
+                placeholder="Search tags…"
+                onChange={(e) => setTagSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setTagListOpen(false);
+                    setTagSearch("");
+                  }
+                }}
+              />
+            )}
             {tags.length === 0 ? (
               <div className="batch-bar__tag-empty">No tags yet.</div>
+            ) : filteredTags.length === 0 ? (
+              <div className="batch-bar__tag-empty">No tags match "{tagSearch}".</div>
             ) : (
-              tags.map((tag) => (
+              filteredTags.map((tag) => (
                 <button
                   key={tag.id}
                   className="batch-bar__tag-option"
                   onClick={() => {
                     onAssignTagToTracks(ids, tag.id);
                     setTagListOpen(false);
+                    setTagSearch("");
                   }}
                 >
                   <span className="batch-bar__tag-dot" style={{ background: tag.color, color: tag.color }} />
