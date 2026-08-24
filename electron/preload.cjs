@@ -101,4 +101,7 @@ contextBridge.exposeInMainWorld("disc", {
     ipcRenderer.invoke("disc:write-device-meta", { rootDir, id, name }),
   getGitStatus: () => ipcRenderer.invoke("disc:get-git-status"),
   pullGitUpdates: () => ipcRenderer.invoke("disc:pull-git-updates"),
+  openDevTools: () => ipcRenderer.invoke("disc:open-devtools"),
+  revealCrashLog: () => ipcRenderer.invoke("disc:reveal-crash-log"),
+  readRecentCrashes: () => ipcRenderer.invoke("disc:read-recent-crashes"),
 });

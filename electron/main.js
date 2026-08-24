@@ -77,6 +77,7 @@ const watchDebounceTimers = new Map(); // key -> Timeout
 // like the memory limit that have to be known before the window/renderer
 // even exists) ---------------------------------------------------------
 const settingsPath = path.join(app.getPath("userData"), "disc-settings.json");
+const crashLogPath = path.join(app.getPath("userData"), "crash-log.jsonl");
 
 // Where a marked section's trimmed clip lives for dragging out to Premiere
 // (see src/audio/sectionDrag.js) — a ".disc-sections" subfolder right next
@@ -384,6 +385,49 @@ function createWindow() {
     mainWindow?.webContents.send("disc:window-maximized-changed", false);
   });
 
+  // The main *process* surviving a renderer crash doesn't mean the user
+  // is fine — Disc's title bar (including its close button) is drawn by
+  // the same renderer that just died, so a crash otherwise leaves a
+  // window that's stuck on screen, blank, with no way to close it short
+  // of Alt+F4 or Task Manager (this actually happened — see the crash log
+  // it's now writing to, and docs/HANDOFF.md). Logs first (so there's a
+  // record even if nobody was watching when it happened), then a native
+  // dialog for recovery — native because it doesn't depend on the crashed
+  // page to render, unlike everything else in this app.
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    try {
+      const entry = {
+        ts: new Date().toISOString(),
+        reason: details.reason,
+        exitCode: details.exitCode,
+      };
+      appendFileSync(crashLogPath, JSON.stringify(entry) + "\n", "utf8");
+    } catch {
+      // Logging the crash is best-effort — nothing to do if even that fails.
+    }
+    if (!mainWindow) return;
+    dialog
+      .showMessageBox(mainWindow, {
+        type: "error",
+        title: "Disc crashed",
+        message: `Disc's window stopped responding (${details.reason}).`,
+        detail:
+          "This has been logged (Settings → Troubleshooting has a button to find the log). Reload to keep working, or close the window.",
+        buttons: ["Reload", "Close"],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then((result) => {
+        if (!mainWindow) return;
+        if (result.response === 0) {
+          if (isDev) mainWindow.loadURL("http://localhost:5173");
+          else mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+        } else {
+          mainWindow.close();
+        }
+      });
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
     // Without this, closing the main window while the floating Pomodoro
@@ -604,6 +648,43 @@ ipcMain.handle("disc:is-acrylic-window-active", () => useAcrylic);
 
 ipcMain.handle("disc:get-app-version", () => {
   return app.getVersion();
+});
+
+// On-demand DevTools — auto-opening on every dev-mode launch got turned
+// off (see the isDev block above) since npm run dev is how end users run
+// this too, not just developers. This is the manual escape hatch for
+// when someone (a user relaying to a developer, or a developer themselves)
+// actually needs to see console/network output while something's
+// misbehaving, without needing a special launch script.
+ipcMain.handle("disc:open-devtools", () => {
+  mainWindow?.webContents.openDevTools({ mode: "detach" });
+  return true;
+});
+
+// Renderer crashes (see the render-process-gone handler above) get logged
+// here regardless of whether anyone had DevTools open at the time —
+// "reveal in Explorer" so a report of "the last few crashes look like
+// this" doesn't require walking someone through a userData file path.
+ipcMain.handle("disc:reveal-crash-log", () => {
+  if (!existsSync(crashLogPath)) return { exists: false };
+  shell.showItemInFolder(crashLogPath);
+  return { exists: true };
+});
+
+ipcMain.handle("disc:read-recent-crashes", async () => {
+  try {
+    const text = await fs.readFile(crashLogPath, "utf8");
+    const lines = text.trim().split("\n").filter(Boolean);
+    return lines.slice(-5).map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+  } catch {
+    return [];
+  }
 });
 
 // Used when a folder gets dragged in from Explorer — confirms the dropped

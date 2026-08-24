@@ -83,6 +83,7 @@ export default function SettingsModal({ onClose }) {
   const [updateInfo, setUpdateInfo] = useState(null);
   const [updateError, setUpdateError] = useState(null);
   const [gitStatus, setGitStatus] = useState(null); // { isGitRepo, branch, behindCount } | null while loading
+  const [recentCrashes, setRecentCrashes] = useState([]);
   // "idle" | "checking" | "pulling" | "error"
   const [gitPullState, setGitPullState] = useState("idle");
   const [gitPullError, setGitPullError] = useState(null);
@@ -105,6 +106,10 @@ export default function SettingsModal({ onClose }) {
   // button deliberately waits for a click before making.
   useEffect(() => {
     window.disc?.getGitStatus().then(setGitStatus);
+  }, []);
+
+  useEffect(() => {
+    window.disc?.readRecentCrashes().then(setRecentCrashes);
   }, []);
 
   async function handleCheckGitUpdates() {
@@ -313,6 +318,40 @@ export default function SettingsModal({ onClose }) {
               </div>
             )}
           </>
+        )}
+
+        <div className="settings-modal__divider" />
+        <div className="settings-modal__section-title">Troubleshooting</div>
+        <p className="settings-modal__note settings-modal__note--top">
+          DevTools shows console errors and network activity — useful if something's
+          misbehaving and you want to see why, or if you're relaying a problem to whoever
+          maintains this fork.
+        </p>
+        {recentCrashes.length > 0 && (
+          <p className="settings-modal__note settings-modal__note--top">
+            {recentCrashes.length} recent crash{recentCrashes.length === 1 ? "" : "es"} logged —
+            last one {new Date(recentCrashes[recentCrashes.length - 1].ts).toLocaleString()}.
+          </p>
+        )}
+        <div className="settings-modal__actions">
+          <button
+            className="settings-modal__cancel"
+            style={{ width: "100%" }}
+            onClick={() => window.disc?.openDevTools()}
+          >
+            Open DevTools
+          </button>
+        </div>
+        {recentCrashes.length > 0 && (
+          <div className="settings-modal__actions">
+            <button
+              className="settings-modal__cancel"
+              style={{ width: "100%" }}
+              onClick={() => window.disc?.revealCrashLog()}
+            >
+              Show Crash Log
+            </button>
+          </div>
         )}
 
         <div className="settings-modal__divider" />
