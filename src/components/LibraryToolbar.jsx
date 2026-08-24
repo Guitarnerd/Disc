@@ -53,6 +53,15 @@ export default function LibraryToolbar({
 
   useEffect(() => () => clearTimeout(queryDebounceRef.current), []);
 
+  // Syncs the visible input when `query` changes from outside this
+  // component — e.g. LibraryPanel clearing it on a folder/Collection
+  // switch. A no-op for the normal typing path (by the time the debounced
+  // onQueryChange above updates the parent, localQuery already matches
+  // it), so this only actually does anything for an external reset.
+  useEffect(() => {
+    setLocalQuery(query);
+  }, [query]);
+
   function commitQuery(next) {
     setLocalQuery(next);
     clearTimeout(queryDebounceRef.current);

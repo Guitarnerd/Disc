@@ -199,12 +199,18 @@ export default function LibraryPanel() {
     }
   }, [healthFilter, onSetHealthFilter]);
 
-  // Picking a folder is a clear signal the person wants to go back to
-  // normal browsing, so drop any active health filter or similar-to view
-  // at that point.
+  // Picking a folder (or a Collection — same activeFolderId mechanism) is
+  // a clear signal the person wants to go back to normal browsing, so
+  // drop any active health filter or similar-to view at that point. A
+  // non-empty search is the same story and used to be left out of this:
+  // search spans every folder (see isGlobalSearch below), so clicking a
+  // Collection while one was still active did nothing visible — the view
+  // stayed on the global search results, and it wasn't obvious why the
+  // Collection you just clicked didn't seem to do anything.
   useEffect(() => {
     if (healthFilter) onSetHealthFilter(null);
     if (similarToTrackId) onFindSimilar(null);
+    if (query) setQuery("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFolderId]);
 
