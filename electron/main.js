@@ -664,6 +664,84 @@ ipcMain.handle("disc:download-and-install-update", async (_event, { downloadUrl,
   }
 });
 
+// --- Git-based updates (dev-mode / cloned-fork installs) ---------------
+// The update checker above is for a packaged, installed build pulling
+// from GitHub Releases — it's pointed at the original upstream repo and
+// there's no installer to download when running from `npm run dev`
+// against a cloned fork, which is how this app is actually distributed
+// among collaborators (see docs/collab-sync-scope.md's setup guide).
+// This is the equivalent for that case: `git pull`, from inside the app
+// instead of a separate terminal. Runs against whatever's actually
+// checked out — works the same regardless of which fork it is.
+function runCommand(command, args, cwd) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { cwd, shell: process.platform === "win32" });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (d) => (stdout += d));
+    child.stderr?.on("data", (d) => (stderr += d));
+    child.on("close", (code) => resolve({ code, stdout: stdout.trim(), stderr: stderr.trim() }));
+    child.on("error", (err) => resolve({ code: -1, stdout: "", stderr: String(err) }));
+  });
+}
+
+// app.getAppPath() is the directory containing package.json in dev mode
+// (running `electron .` against the project root) — exactly the git
+// working tree this needs. In a packaged build it resolves somewhere
+// inside resources/app instead, which has no .git folder — the
+// rev-parse check below fails cleanly there, and the renderer simply
+// doesn't show this section rather than showing something broken.
+const PROJECT_ROOT = app.getAppPath();
+
+ipcMain.handle("disc:get-git-status", async () => {
+  const check = await runCommand("git", ["rev-parse", "--is-inside-work-tree"], PROJECT_ROOT);
+  if (check.code !== 0) return { isGitRepo: false };
+
+  await runCommand("git", ["fetch"], PROJECT_ROOT);
+  const branchResult = await runCommand("git", ["branch", "--show-current"], PROJECT_ROOT);
+  const branch = branchResult.stdout || "main";
+  const countResult = await runCommand(
+    "git",
+    ["rev-list", `HEAD..origin/${branch}`, "--count"],
+    PROJECT_ROOT
+  );
+  const behindCount = parseInt(countResult.stdout, 10) || 0;
+  return { isGitRepo: true, branch, behindCount };
+});
+
+// Plain `git pull` — deliberately not `--force` or anything that would
+// discard local changes. A real conflict (someone's mid-edit on this
+// checkout) surfaces as an error for the person to resolve themselves
+// rather than something this silently works around. Also runs `npm
+// install` afterward if the pull actually changed package.json, since a
+// new/updated dependency needs that before the app would work correctly.
+ipcMain.handle("disc:pull-git-updates", async () => {
+  const before = await runCommand(
+    "git",
+    ["rev-parse", "HEAD:package.json"],
+    PROJECT_ROOT
+  );
+  const pull = await runCommand("git", ["pull"], PROJECT_ROOT);
+  if (pull.code !== 0) {
+    return { success: false, error: pull.stderr || pull.stdout || "git pull failed" };
+  }
+  const after = await runCommand("git", ["rev-parse", "HEAD:package.json"], PROJECT_ROOT);
+  const packageChanged = before.stdout !== after.stdout;
+
+  if (packageChanged) {
+    const install = await runCommand("npm", ["install"], PROJECT_ROOT);
+    if (install.code !== 0) {
+      return {
+        success: true,
+        packageChanged: true,
+        installFailed: true,
+        error: install.stderr || install.stdout,
+      };
+    }
+  }
+  return { success: true, packageChanged };
+});
+
 // --- Profiles ---------------------------------------------------------
 // A "profile" is everything Disc persists (theme, folders, tags, notes,
 // shortcuts, appearance, layout, marked sections, all of it) bundled

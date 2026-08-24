@@ -99,4 +99,6 @@ contextBridge.exposeInMainWorld("disc", {
   readSyncState: (rootDir) => ipcRenderer.invoke("disc:read-sync-state", rootDir),
   writeDeviceMeta: (rootDir, id, name) =>
     ipcRenderer.invoke("disc:write-device-meta", { rootDir, id, name }),
+  getGitStatus: () => ipcRenderer.invoke("disc:get-git-status"),
+  pullGitUpdates: () => ipcRenderer.invoke("disc:pull-git-updates"),
 });

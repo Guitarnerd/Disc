@@ -82,6 +82,11 @@ export default function SettingsModal({ onClose }) {
   const [updateStatus, setUpdateStatus] = useState("idle");
   const [updateInfo, setUpdateInfo] = useState(null);
   const [updateError, setUpdateError] = useState(null);
+  const [gitStatus, setGitStatus] = useState(null); // { isGitRepo, branch, behindCount } | null while loading
+  // "idle" | "checking" | "pulling" | "error"
+  const [gitPullState, setGitPullState] = useState("idle");
+  const [gitPullError, setGitPullError] = useState(null);
+  const [showGitRestartPrompt, setShowGitRestartPrompt] = useState(false);
   const rootRef = useRef(null);
 
   const candidateCount = getPreloadCandidates(allTracks).length;
@@ -92,6 +97,43 @@ export default function SettingsModal({ onClose }) {
   useEffect(() => {
     if (deviceIdentity?.name) setDeviceNameDraft(deviceIdentity.name);
   }, [deviceIdentity]);
+
+  // Unlike the installer updater's "Check for Updates" button, this
+  // checks on open — a `git fetch` against origin is the same weight as
+  // anything else that happens automatically here (e.g. loading the
+  // memory limit below), not the heavier GitHub Releases API call that
+  // button deliberately waits for a click before making.
+  useEffect(() => {
+    window.disc?.getGitStatus().then(setGitStatus);
+  }, []);
+
+  async function handleCheckGitUpdates() {
+    setGitPullState("checking");
+    setGitPullError(null);
+    const status = await window.disc?.getGitStatus();
+    setGitStatus(status);
+    setGitPullState("idle");
+  }
+
+  async function handlePullGitUpdates() {
+    setGitPullState("pulling");
+    setGitPullError(null);
+    const result = await window.disc?.pullGitUpdates();
+    if (!result?.success) {
+      setGitPullState("error");
+      setGitPullError(result?.error || "git pull failed");
+      return;
+    }
+    if (result.installFailed) {
+      setGitPullState("error");
+      setGitPullError(
+        `Pulled, but npm install failed — run it manually: ${result.error || ""}`
+      );
+      return;
+    }
+    setGitPullState("idle");
+    setShowGitRestartPrompt(true);
+  }
 
   useEffect(() => {
     window.disc?.getMemoryLimit().then((mb) => {
@@ -218,6 +260,60 @@ export default function SettingsModal({ onClose }) {
             </button>
           )}
         </div>
+
+        {gitStatus?.isGitRepo && (
+          <>
+            <div className="settings-modal__divider" />
+            <div className="settings-modal__section-title">Fork Updates</div>
+            <p className="settings-modal__note settings-modal__note--top">
+              {gitStatus.behindCount === 0
+                ? `Up to date with origin/${gitStatus.branch}.`
+                : `${gitStatus.behindCount} commit${gitStatus.behindCount === 1 ? "" : "s"} behind origin/${gitStatus.branch}.`}
+            </p>
+            {gitPullState === "error" && (
+              <p className="settings-modal__note settings-modal__note--top">{gitPullError}</p>
+            )}
+
+            {showGitRestartPrompt ? (
+              <div className="settings-modal__restart">
+                <p className="settings-modal__restart-text">Pulled. Restart Disc now to load it?</p>
+                <div className="settings-modal__actions">
+                  <button
+                    className="settings-modal__cancel"
+                    onClick={() => setShowGitRestartPrompt(false)}
+                  >
+                    Later
+                  </button>
+                  <button className="settings-modal__save" onClick={() => window.disc?.relaunchApp()}>
+                    Restart Now
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="settings-modal__actions">
+                {gitStatus.behindCount > 0 ? (
+                  <button
+                    className="settings-modal__save"
+                    style={{ width: "100%" }}
+                    onClick={handlePullGitUpdates}
+                    disabled={gitPullState === "pulling"}
+                  >
+                    {gitPullState === "pulling" ? "Pulling…" : `Pull ${gitStatus.behindCount} update${gitStatus.behindCount === 1 ? "" : "s"}`}
+                  </button>
+                ) : (
+                  <button
+                    className="settings-modal__cancel"
+                    style={{ width: "100%" }}
+                    onClick={handleCheckGitUpdates}
+                    disabled={gitPullState === "checking"}
+                  >
+                    {gitPullState === "checking" ? "Checking…" : "Check for Updates"}
+                  </button>
+                )}
+              </div>
+            )}
+          </>
+        )}
 
         <div className="settings-modal__divider" />
         <div className="settings-modal__section-title">Performance</div>
