@@ -1,4 +1,4 @@
-import { getAudioContext, acquireSlot, releaseSlot } from "./waveform.js";
+import { getAudioContext, acquireSlot, releaseSlot, MAX_ANALYZABLE_SIZE_BYTES } from "./waveform.js";
 
 const analysisCache = new Map();
 const inFlight = new Map();
@@ -17,10 +17,24 @@ export function getCachedAnalysis(trackId) {
   return analysisCache.get(trackId) || null;
 }
 
+// See invalidateWaveform in waveform.js — same reasoning, same need,
+// since this cache is also keyed by track id rather than file content.
+export function invalidateAnalysis(trackId) {
+  analysisCache.delete(trackId);
+}
+
 export function computeAnalysis(track) {
   if (analysisCache.has(track.id)) return Promise.resolve(analysisCache.get(track.id));
   if (inFlight.has(track.id)) return inFlight.get(track.id);
   if (!window.disc) return Promise.resolve(null);
+
+  // See the matching guard in waveform.js's computeWaveform — same file,
+  // same reasoning, same confirmed OOM risk for a very large single file.
+  if (track.sizeBytes > MAX_ANALYZABLE_SIZE_BYTES) {
+    const result = { bpm: null, key: null, chroma: null, brightness: null, energy: null, tooLarge: true };
+    analysisCache.set(track.id, result);
+    return Promise.resolve(result);
+  }
 
   const promise = (async () => {
     await acquireSlot();
