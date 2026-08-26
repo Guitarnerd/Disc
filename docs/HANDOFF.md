@@ -1,13 +1,14 @@
 # Handoff — Disc / Studio Sync
 
-Last updated: 2026-08-24. Written for picking this project back up in a
+Last updated: 2026-08-26. Written for picking this project back up in a
 fresh conversation with no memory of how it got here.
 
 ## Where things actually stand
 
 - **Repo**: [github.com/Guitarnerd/Disc](https://github.com/Guitarnerd/Disc) — a fork of the original Disc app, cloned locally at `C:\Users\The Basement\Documents\Disc Music App`.
-- **Branch**: `main`, currently at commit `c9d3449` ("Clear search when switching folders/Collections"). Working tree is clean — nothing uncommitted.
-- **Status**: the collaboration feature and initial onboarding are done — both machines are live, Peter's confirmed working, Studio Sync shows 2 devices seen. Work has shifted from building phases to ordinary maintenance: small bugfixes and occasional feature requests as they come up from actual use, not a planned roadmap. Nothing is mid-flight as of this update.
+- **Branch**: `main`, currently at commit `c7b6c64` ("Add Repair Track, and fix an OOM crash confirmed via crash logs"). Working tree is clean — nothing uncommitted.
+- **Status**: the collaboration feature and initial onboarding are done — both machines are live, Peter's confirmed working, Studio Sync shows 2 devices seen. Work is ordinary maintenance now: small bugfixes and occasional feature requests as they come up from actual use, not a planned roadmap. Nothing is mid-flight as of this update.
+- **The renderer-crash mystery from the previous update is solved and fixed** — both crash log entries showed `reason: "oom"`. Root cause: this library has files upward of 285MB, and `decodeAudioData` producing a full-resolution raw PCM buffer for one of those allocates gigabytes on its own — a few landing in the same preload batch exhausts available memory. Fixed by skipping waveform/BPM-Key decode for anything over 50MB (`MAX_ANALYZABLE_SIZE_BYTES` in `src/audio/waveform.js`) — still fully playable, just no waveform/analysis, same as video clips. Also added **Repair Track** (right-click a track) — diagnoses a file's real header against its extension (this is how the DaVinci Resolve drag-and-drop bug from two sessions ago got found and fixed) and re-encodes in place if they don't match, preserving all tags since the file path never changes.
 - **Running it**: double-click the "Disc" shortcut on the Desktop (created this session — replaced an old shortcut that pointed at a separate installed build at `C:\Users\The Basement\AppData\Local\Programs\disc`, which is no longer the one in use). That shortcut silently runs `npm run dev` from this folder. Manually: `cd` into the project, `npm run dev`.
 - **Design doc**: [docs/collab-sync-scope.md](collab-sync-scope.md) — the full scope/architecture document for the collaboration feature, kept up to date as things shipped. Read that before touching anything sync-related; it has the event schema, the merge algorithm, every decision made, and a recorded incident. This file is the *status/orientation* doc; that one is the *design reference*.
 
