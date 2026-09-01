@@ -67,6 +67,22 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+// Without this, launching Disc while it's already running doesn't do
+// nothing so much as it does something confusing: a second full process
+// tree (Vite + Electron) spins up and immediately collides with the first
+// over port 5173, and depending on timing that can either silently fail
+// or leave stray processes behind — repeated launches this way is
+// genuinely how a machine ends up with a pile of stuck node/electron
+// processes and a Desktop shortcut that looks like it's doing nothing
+// (see docs/HANDOFF.md). requestSingleInstanceLock() is the standard
+// Electron fix: a second launch attempt hands off to the first instance
+// (which just focuses its window, see the "second-instance" listener
+// below) and quits immediately instead of trying to run alongside it.
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
 let mainWindow = null;
 let pomodoroWindow = null; // the standalone floating Pomodoro widget — see createPomodoroWindow
 let normalBounds = null; // remembered so we can restore after compact mode
@@ -481,7 +497,18 @@ function createPomodoroWindow() {
   });
 }
 
+// The losing instance already called app.quit() above — this just makes
+// sure it never gets as far as opening a second window in the meantime.
+app.on("second-instance", () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
+
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) return;
+
   // The URL is disc-media://play/<encoded absolute file path>. "play" as
   // the host is arbitrary (custom schemes need one) — everything that
   // matters is in the path, which is exactly the file path run through
