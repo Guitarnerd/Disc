@@ -88,6 +88,34 @@ other and re-diagnosing from scratch would be slow.
    **Worth remembering if a real packaged build ever gets installed
    again**: don't let it and the dev instance share an AppUserModelID
    unless both are expected to always be installed/present together.
+5. **Pinning to the taskbar still shows the generic Electron icon — left
+   as a known, accepted limitation of dev mode.** The icon is correct the
+   entire time Disc is actually running; only the static *pinned* tile
+   (when not running) is wrong. Root cause: "Pin to taskbar" from a
+   running window always has Windows build the pinned shortcut from the
+   *actual running executable's own file*, which in dev mode is the stock
+   `node_modules\electron\dist\electron.exe` — Electron's own icon is
+   permanently embedded in that binary itself, and nothing at the JS
+   level (`icon:`, `setIcon()`, `AppUserModelID`) can override what
+   Windows reads from the .exe file's own resources for a *pinned, not
+   currently running* shortcut. Directly rewriting the pinned `.lnk`'s
+   `TargetPath`/`IconLocation` in place (via `WScript.Shell` COM, same
+   technique `create-desktop-shortcut.ps1` uses) works right up until the
+   next time someone re-pins from a running window, which regenerates it
+   from scratch and clobbers the fix again. The old installed build never
+   had this problem because electron-builder's packaging step genuinely
+   renames a copy of `electron.exe` (to `Disc.exe`) and re-embeds Disc's
+   icon into *that file's own resources* via `rcedit` — there's no
+   equivalent shortcut for unpackaged dev mode without replicating that
+   same renamed-copy-plus-`rcedit` step by hand (real new tooling: a
+   download, a re-iconned exe copy that needs regenerating after every
+   `npm install`, and a script to do it — evaluated and explicitly
+   deferred, see below). **Decided 2026-09-09**: not worth the ongoing
+   maintenance surface for a cosmetic dev-mode-only issue. Revisit when
+   there's ever a reason to produce an actual packaged/signed release
+   build (`npm run dist` already handles this correctly for free, via
+   electron-builder) — at that point this stops being a dev-mode
+   workaround question entirely.
 
 ## Known gotchas worth not re-learning the hard way
 
