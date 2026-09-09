@@ -1,15 +1,16 @@
 # Handoff — Disc / Studio Sync
 
-Last updated: 2026-08-26. Written for picking this project back up in a
+Last updated: 2026-09-09. Written for picking this project back up in a
 fresh conversation with no memory of how it got here.
 
 ## Where things actually stand
 
 - **Repo**: [github.com/Guitarnerd/Disc](https://github.com/Guitarnerd/Disc) — a fork of the original Disc app, cloned locally at `C:\Users\The Basement\Documents\Disc Music App`.
-- **Branch**: `main`, currently at commit `c7b6c64` ("Add Repair Track, and fix an OOM crash confirmed via crash logs"). Working tree is clean — nothing uncommitted.
+- **Branch**: `main`, currently at commit `62b84ad` ("Fix blank taskbar icon caused by reusing the uninstalled build's AppUserModelID"). Working tree is clean — nothing uncommitted.
 - **Status**: the collaboration feature and initial onboarding are done — both machines are live, Peter's confirmed working, Studio Sync shows 2 devices seen. Work is ordinary maintenance now: small bugfixes and occasional feature requests as they come up from actual use, not a planned roadmap. Nothing is mid-flight as of this update.
+- **The old standalone installed build is gone.** It used to live at `AppData\Local\Programs\disc` (predates this fork, was replaced by the dev-mode Desktop shortcut a while back) — it got uninstalled this session after being found still pinned to the taskbar, pointing at stale code with separate data. See "Launcher/taskbar saga" below before touching anything shortcut- or taskbar-icon-related; it's a real rabbit hole with a non-obvious root cause at the bottom of it.
 - **The renderer-crash mystery from the previous update is solved and fixed** — both crash log entries showed `reason: "oom"`. Root cause: this library has files upward of 285MB, and `decodeAudioData` producing a full-resolution raw PCM buffer for one of those allocates gigabytes on its own — a few landing in the same preload batch exhausts available memory. Fixed by skipping waveform/BPM-Key decode for anything over 50MB (`MAX_ANALYZABLE_SIZE_BYTES` in `src/audio/waveform.js`) — still fully playable, just no waveform/analysis, same as video clips. Also added **Repair Track** (right-click a track) — diagnoses a file's real header against its extension (this is how the DaVinci Resolve drag-and-drop bug from two sessions ago got found and fixed) and re-encodes in place if they don't match, preserving all tags since the file path never changes.
-- **Running it**: double-click the "Disc" shortcut on the Desktop (created this session — replaced an old shortcut that pointed at a separate installed build at `C:\Users\The Basement\AppData\Local\Programs\disc`, which is no longer the one in use). That shortcut silently runs `npm run dev` from this folder. Manually: `cd` into the project, `npm run dev`.
+- **Running it**: double-click the "Disc" shortcut on the Desktop, or the taskbar pin (re-pin from the running app if it's ever missing — right-click the running app's taskbar icon → Pin to taskbar). Both now correctly point at this dev fork; the old separately-installed build at `Programs\disc` that used to cause confusion here is fully uninstalled as of 2026-09-09 (see "Launcher/taskbar saga" below). The shortcut runs `launch-disc.vbs`, which silently runs `npm run dev` from this folder unless Disc is already running (in which case it just focuses the existing window). Manually: `cd` into the project, `npm run dev`. If the Desktop shortcut ever goes missing, re-run `create-desktop-shortcut.ps1`.
 - **Design doc**: [docs/collab-sync-scope.md](collab-sync-scope.md) — the full scope/architecture document for the collaboration feature, kept up to date as things shipped. Read that before touching anything sync-related; it has the event schema, the merge algorithm, every decision made, and a recorded incident. This file is the *status/orientation* doc; that one is the *design reference*.
 
 ## What got built this session
@@ -20,6 +21,73 @@ fresh conversation with no memory of how it got here.
 4. **In-app git update checker** — Settings → "Fork Updates" section (only shows when running from an actual git checkout). Runs `git fetch`/`pull` from inside the app instead of a terminal; re-runs `npm install` if the pull touched `package.json`. Separate from the pre-existing installer-based "Check for Updates" (that one points at GitHub Releases on the *original* upstream repo, not this fork — left alone, still there for if a packaged build ever gets released from the fork itself).
 5. **Data recovery**: a "The Basement Studio" local Profile was created (Profiles menu, title bar) containing the original tags/collections/track-tags pulled from the pre-fork installed app — a clean backup independent of Studio Sync.
 6. **Peter's onboarding, in progress**: hit and fixed three real issues getting him running — (a) his npm has a script-execution gate (likely `@lavamoat/allow-scripts` or similar) that blocked Electron's and esbuild's install scripts by default, fixed locally on his machine via `npm approve-scripts electron`/`esbuild` then `npm rebuild electron esbuild`, nothing to fix in the repo; (b) DevTools was auto-opening on every dev-mode launch, confusing for a non-developer end user — fixed, see below; (c) **the real one** — closing the Disc window didn't actually shut down the underlying dev server, so the next shortcut click silently failed against a stale, orphaned Vite instance still holding port 5173. Root cause was `concurrently --kill-others-on-fail` (only tears down siblings on a *failed* exit, not a clean one) instead of `--kill-others` (tears down on any exit) — a one-line fix in `package.json`, but the impact was large: this was very likely the same underlying cause behind essentially every "the app won't launch"/"the shortcut stopped working" moment on *both* machines throughout this whole project, not just Peter's setup.
+
+## Launcher/taskbar saga (2026-09-09)
+
+A single user report — "the taskbar icon opens a different instance than
+the Desktop shortcut, and I want them to be the same one" — unraveled
+into four separate, layered bugs. Worth reading in full if launching,
+shortcuts, or taskbar/icon behavior act up again; the fixes build on each
+other and re-diagnosing from scratch would be slow.
+
+1. **The taskbar was pinned to a completely different app.** It pointed
+   straight at `AppData\Local\Programs\disc\Disc.exe` — the old
+   standalone packaged build from before this fork existed (see the
+   "Running it" note above about the Desktop shortcut having already been
+   redirected off of it once). The Desktop shortcut was correct
+   (`launch-disc.vbs`); the taskbar pin had just never been updated to
+   match. Since both builds share the same Electron `productName`
+   ("Disc"), they also shared the same `%APPDATA%\Disc` userData
+   directory — but the dev build loads its renderer over
+   `http://localhost:5173` while the packaged build loads over `file://`,
+   and `localStorage` is scoped per-origin *within* that shared store, so
+   the two builds still had fully separate settings/tags/collections
+   despite technically sharing a profile folder. This is the same
+   localStorage origin-scoping trap noted below, just surfacing through a
+   different launcher.
+2. **Uninstalling that old build swept away the working Desktop shortcut
+   and taskbar pin too**, not just its own. NSIS's uninstaller matches
+   shortcuts to remove by name/AppUserModelID, and the dev build was (at
+   the time) using the *same* AppUserModelID as the old build on purpose
+   — see point 4. Recovered by re-running `create-desktop-shortcut.ps1`
+   (already correctly targets `launch-disc.vbs`); the taskbar needed a
+   manual re-pin from the running app afterward. Nothing in `%APPDATA%\
+   Disc` (actual settings/tags/data) was touched by any of this — it was
+   shortcuts and pins only.
+3. **The Desktop shortcut then silently did nothing at all.**
+   `launch-disc.vbs` uses `shell.AppActivate("Disc")` to detect an
+   already-running instance before deciding whether to launch — but
+   `AppActivate` does a case-insensitive *prefix* match against every
+   open window's title, and a File Explorer window for a folder literally
+   named `disc` (the now-empty old-build folder, open at the time from
+   poking around in it) matched and got silently "activated" instead.
+   Fixed by renaming the window title to `"Disc — Music Library"` (specific
+   enough to not prefix-collide with stray windows) in both
+   `electron/main.js` and the `AppActivate(...)` call in
+   `launch-disc.vbs`. Also had to add a `page-title-updated` handler in
+   `main.js` — Electron syncs the window title to the page's own
+   `<title>` on load by default, and `index.html`'s is just `"Disc"`,
+   which would have silently undone the rename the moment the renderer
+   finished loading.
+4. **The taskbar icon then showed as a generic blank page**, even though
+   the in-app custom title bar's own icon (drawn by the React UI, not the
+   OS) looked correct the whole time. Neither an Explorer icon-cache
+   clear nor an explicit `mainWindow.setIcon()` call fixed it — the icon
+   file itself loaded fine (`nativeImage`, confirmed via a throwaway
+   script). Root cause: the dev instance's `AppUserModelID` was
+   deliberately set to `"com.disc.app"` to match `package.json`'s
+   `build.appId`, so a packaged install and a dev run would be treated as
+   the same app identity — and this had worked fine right up until the
+   old packaged build (which had *genuinely* registered `"com.disc.app"`
+   as an installed app with Windows — Start Menu entry, icon, the works,
+   via its NSIS installer) got uninstalled in step 2. After that, the dev
+   build kept claiming an id with no real installed-app registration
+   behind it, and Windows fell back to a blank icon for taskbar
+   resolution. Fixed by giving the dev instance its own distinct id,
+   `"com.disc.app.dev"`, instead of squatting on the packaged build's.
+   **Worth remembering if a real packaged build ever gets installed
+   again**: don't let it and the dev instance share an AppUserModelID
+   unless both are expected to always be installed/present together.
 
 ## Known gotchas worth not re-learning the hard way
 
