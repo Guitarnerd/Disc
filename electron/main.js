@@ -90,10 +90,17 @@ if (!gotSingleInstanceLock) {
 // one) is indistinguishable to Windows, which is very likely why pinning
 // straight from the running taskbar button falls back to Electron's own
 // generic icon regardless of what icon the BrowserWindow itself was given.
-// Matches package.json's build.appId so a packaged install and a dev-mode
-// run are treated as the same app identity.
+// Deliberately its own id, distinct from package.json's build.appId
+// ("com.disc.app") — that id used to double as a genuine installed-app
+// registration (Start Menu entry, Programs-and-Features entry, icon) from
+// an old standalone packaged build. Once that build got uninstalled,
+// Windows tore down that registration, and this dev-mode instance reusing
+// the same id started rendering a blank/generic taskbar icon — Windows
+// appears to want a live installed-app registration behind an id like
+// this for icon resolution, not just a live window's own HICON. A
+// distinct id sidesteps that regardless of what is or isn't installed.
 if (process.platform === "win32") {
-  app.setAppUserModelId("com.disc.app");
+  app.setAppUserModelId("com.disc.app.dev");
 }
 
 let mainWindow = null;
@@ -404,6 +411,11 @@ function createWindow() {
       // Left here as a marker for Phase 3 (drag-to-Premiere).
     },
   });
+
+  // Belt-and-suspenders alongside the `icon:` constructor option above —
+  // harmless, and keeps the window's icon explicitly set on the live
+  // native handle rather than relying solely on constructor-time state.
+  mainWindow.setIcon(nativeImage.createFromPath(path.join(__dirname, "assets", "disc-icon.ico")));
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
