@@ -361,7 +361,15 @@ function createWindow() {
     // instead of blending with it (shows up as a real blurred backdrop
     // with the entire Disc UI missing).
     backgroundColor: useAcrylic ? "#00000000" : "#1b1b1f",
-    title: "Disc",
+    // Deliberately not just "Disc" — launch-disc.vbs uses AppActivate to
+    // detect whether the app is already running before deciding to launch
+    // it, and AppActivate does a case-insensitive *prefix* match against
+    // every open window's title. A plain "Disc" title once matched a
+    // File Explorer window for a folder literally named "disc", which
+    // AppActivate happily "activated" (brought to front) instead of ever
+    // starting the app — the launcher silently did nothing. This longer,
+    // more specific title is unlikely to prefix-match anything else.
+    title: "Disc — Music Library",
     // Without this, dev mode (`electron .`, not a packaged build) shows
     // Electron's own generic default icon in the taskbar instead of
     // Disc's — a packaged build gets this for free from the .exe's own
@@ -413,6 +421,16 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
   }
+
+  // Electron syncs the window title to the page's own <title> on every
+  // navigation/reload by default, which would silently undo the title set
+  // above (index.html's <title> is just "Disc") — launch-disc.vbs depends
+  // on the window title staying exactly "Disc — Music Library" to reliably
+  // detect an already-running instance (see comment there), so that has to
+  // win over whatever the page sets.
+  mainWindow.on("page-title-updated", (event) => {
+    event.preventDefault();
+  });
 
   mainWindow.on("maximize", () => {
     mainWindow?.webContents.send("disc:window-maximized-changed", true);

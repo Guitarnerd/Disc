@@ -2,9 +2,15 @@
 ' shortcut points at.
 '
 ' Checks whether Disc is already running first, by trying to activate a
-' window titled "Disc" (Electron sets this from BrowserWindow's `title`
-' option even though the window is frameless and draws no visible native
-' caption bar — Windows' own window manager still knows it by that title).
+' window titled "Disc — Music Library" (Electron sets this from
+' BrowserWindow's `title` option even though the window is frameless and
+' draws no visible native caption bar — Windows' own window manager still
+' knows it by that title). The title is deliberately this specific and not
+' just "Disc": AppActivate does a case-insensitive *prefix* match against
+' every open window, so a plain "Disc" once matched a File Explorer window
+' for a folder literally named "disc" and "activated" that instead of ever
+' launching the app — the launcher silently did nothing, with no visible
+' error since this whole script runs hidden.
 ' Without this check, clicking the shortcut while Disc is already open
 ' starts a second full Vite+Electron process tree that immediately
 ' collides with the first over port 5173 — Vite fails fast (server.
@@ -18,7 +24,7 @@
 Dim shell
 Set shell = CreateObject("WScript.Shell")
 
-If shell.AppActivate("Disc") Then
+If shell.AppActivate("Disc — Music Library") Then
   ' Already running — just brought it to the front, nothing else to do.
 Else
   Dim fso, scriptDir
